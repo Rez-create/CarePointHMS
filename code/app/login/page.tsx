@@ -73,8 +73,8 @@ export default function Login() {
           {/* Brand Section */}
           <div className="hidden md:flex flex-col justify-center">
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center">
-                <Heart className="w-6 h-6 text-primary-foreground" />
+              <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center">
+                <img src="/logo.png" alt="CarePoint Logo" className="w-12 h-12" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">CarePoint</h1>
@@ -82,23 +82,23 @@ export default function Login() {
               </div>
             </div>
             <div className="space-y-4">
-              <h2 className="text-3xl font-bold text-foreground leading-tight">Streamlined Healthcare Management</h2>
+              <h2 className="text-3xl font-bold text-foreground leading-tight">Advanced Healthcare Solutions</h2>
               <p className="text-muted-foreground">
-                CarePoint is a modern, efficient, and user-friendly hospital management system that streamlines
-                operations from patient registration to billing.
+                Welcome to CarePoint HMS - where cutting-edge technology meets compassionate care. We provide a comprehensive
+                suite of tools for seamless healthcare delivery and management.
               </p>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                  Real-time appointment management
+                  Smart Appointment Scheduling
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                  Secure patient records
+                  Enhanced Patient Care Records
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                  Integrated pharmacy & lab systems
+                  Unified Medical Services Platform
                 </li>
               </ul>
             </div>

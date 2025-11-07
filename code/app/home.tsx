@@ -226,21 +226,12 @@ export default function Landing() {
               <Card className="border-border">
                 <CardContent className="p-6">
                   <form className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <input
-                          type="text"
-                          placeholder="First Name"
-                          className="w-full px-4 py-2 rounded-md border border-border bg-background"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="text"
-                          placeholder="Last Name"
-                          className="w-full px-4 py-2 rounded-md border border-border bg-background"
-                        />
-                      </div>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Full Name"
+                        className="w-full px-4 py-2 rounded-md border border-border bg-background"
+                      />
                     </div>
                     <div>
                       <input

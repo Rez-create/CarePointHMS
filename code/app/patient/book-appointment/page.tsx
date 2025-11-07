@@ -10,7 +10,8 @@ import { Heart, Calendar, Clock, User, Mail, Phone, ArrowLeft } from "lucide-rea
 import Link from "next/link"
 
 interface AppointmentData {
-  patientName: string
+  firstName: string
+  lastName: string
   email: string
   phone: string
   appointmentDate: string
@@ -22,7 +23,8 @@ interface AppointmentData {
 
 export default function BookAppointment() {
   const [formData, setFormData] = useState<AppointmentData>({
-    patientName: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     appointmentDate: "",
@@ -63,7 +65,8 @@ export default function BookAppointment() {
 
     // Validate required fields
     if (
-      !formData.patientName ||
+      !formData.firstName ||
+      !formData.lastName ||
       !formData.email ||
       !formData.phone ||
       !formData.appointmentDate ||
@@ -150,19 +153,35 @@ export default function BookAppointment() {
                   Your Information
                 </h3>
 
-                <div className="space-y-2">
-                  <label htmlFor="patientName" className="text-sm font-medium text-foreground">
-                    Full Name *
-                  </label>
-                  <Input
-                    id="patientName"
-                    name="patientName"
-                    placeholder="John Doe"
-                    value={formData.patientName}
-                    onChange={handleChange}
-                    className="bg-input border-border text-foreground"
-                    required
-                  />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="firstName" className="text-sm font-medium text-foreground">
+                      First Name *
+                    </label>
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      placeholder="first name"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      className="bg-input border-border text-foreground"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="lastName" className="text-sm font-medium text-foreground">
+                      Last Name *
+                    </label>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      placeholder="last name"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      className="bg-input border-border text-foreground"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
@@ -176,7 +195,7 @@ export default function BookAppointment() {
                         id="email"
                         name="email"
                         type="email"
-                        placeholder="john@example.com"
+                        placeholder="email@example.com"
                         value={formData.email}
                         onChange={handleChange}
                         className="pl-10 bg-input border-border text-foreground"
@@ -193,7 +212,7 @@ export default function BookAppointment() {
                       <Input
                         id="phone"
                         name="phone"
-                        placeholder="+1 (555) 123-4567"
+                        placeholder="+254 7** *** ***"
                         value={formData.phone}
                         onChange={handleChange}
                         className="pl-10 bg-input border-border text-foreground"
@@ -230,8 +249,6 @@ export default function BookAppointment() {
                     <label htmlFor="appointmentTime" className="text-sm font-medium text-foreground">
                       Appointment Time *
                     </label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="appointmentTime"
                         name="appointmentTime"
@@ -241,7 +258,6 @@ export default function BookAppointment() {
                         className="pl-10 bg-input border-border text-foreground"
                         required
                       />
-                    </div>
                   </div>
                 </div>
 
@@ -293,7 +309,6 @@ export default function BookAppointment() {
               {/* Reason for Visit */}
               <div className="space-y-4 pt-4 border-t border-border">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  <Heart className="w-4 h-4" />
                   Additional Information
                 </h3>
                 <div className="space-y-2">
