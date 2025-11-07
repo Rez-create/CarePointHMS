@@ -1,10 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  reactStrictMode: true,
   images: {
-    unoptimized: true,
+    domains: [],
+  },
+  // Disable the loading indicator
+  devIndicators: {
+    buildActivity: false,
   },
 }
 
