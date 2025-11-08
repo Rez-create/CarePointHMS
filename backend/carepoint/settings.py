@@ -37,7 +37,44 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Third party apps
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'corsheaders',
+    # Local apps
+    'userauth',
+    'patients',
+    'appointments',
+    'laboratory',
+    'pharmacy',
+    'billing',
 ]
+
+# Custom user model
+AUTH_USER_MODEL = 'userauth.Staff'
+
+# REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10
+}
+
+# JWT settings
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+}
+
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = True  # For development only, configure properly in production
+CORS_ALLOW_CREDENTIALS = True
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -74,8 +111,16 @@ WSGI_APPLICATION = 'carepoint.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'mysql.connector.django',
+        'NAME': 'HospitalManagementSystem',
+        'USER': 'root',
+        'PASSWORD': 'RootUser',
+        'HOST': 'localhost',
+        'PORT': '3306',
+        'OPTIONS': {
+            'autocommit': True,
+            'use_pure': True,
+        },
     }
 }
 
