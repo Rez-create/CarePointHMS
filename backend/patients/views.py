@@ -10,7 +10,7 @@ from .serializers import PatientSerializer, MedicalRecordSerializer
 class PatientViewSet(viewsets.ModelViewSet):
     queryset = Patient.objects.all()
     serializer_class = PatientSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         queryset = Patient.objects.all()
@@ -399,7 +399,7 @@ class PatientViewSet(viewsets.ModelViewSet):
 class MedicalRecordViewSet(viewsets.ModelViewSet):
     queryset = MedicalRecord.objects.all()
     serializer_class = MedicalRecordSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         queryset = MedicalRecord.objects.all()
@@ -412,3 +412,89 @@ class MedicalRecordViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(record_type=record_type)
             
         return queryset.order_by('-record_date')
+    
+    def list(self, request, *args, **kwargs):
+        # Get regular medical records
+        medical_records = self.get_queryset()
+        
+        # Get consultations
+        from appointments.models import Consultation
+        consultations = Consultation.objects.all().order_by('-consultation_datetime')
+        
+        # Get prescriptions
+        from pharmacy.models import Prescription, PrescriptionDetail
+        prescriptions = Prescription.objects.all().order_by('-prescribed_date')
+        
+        # Combine all records
+        all_records = []
+        
+        # Add medical records
+        for record in medical_records:
+            all_records.append({
+                'id': record.id,
+                'patient': {
+                    'id': record.patient.id,
+                    'first_name': record.patient.first_name,
+                    'last_name': record.patient.last_name
+                } if record.patient else None,
+                'recorded_by': {
+                    'id': record.recorded_by.id,
+                    'first_name': record.recorded_by.first_name,
+                    'last_name': record.recorded_by.last_name
+                } if record.recorded_by else None,
+                'record_type': record.record_type,
+                'description': record.description,
+                'record_date': record.record_date,
+                'source': 'medical_record'
+            })
+        
+        # Add consultations as records
+        for consultation in consultations:
+            all_records.append({
+                'id': f'consultation_{consultation.id}',
+                'patient': {
+                    'id': consultation.patient.id,
+                    'first_name': consultation.patient.first_name,
+                    'last_name': consultation.patient.last_name
+                } if consultation.patient else None,
+                'recorded_by': {
+                    'id': consultation.doctor.id,
+                    'first_name': consultation.doctor.first_name,
+                    'last_name': consultation.doctor.last_name
+                } if consultation.doctor else None,
+                'record_type': 'consultation',
+                'description': f'Consultation: {consultation.chief_complaint}. Diagnosis: {consultation.diagnosis}',
+                'record_date': consultation.consultation_datetime,
+                'source': 'consultation'
+            })
+        
+        # Add prescriptions as records
+        for prescription in prescriptions:
+            # Get prescription details
+            details = PrescriptionDetail.objects.filter(prescription=prescription)
+            medications = []
+            for detail in details:
+                medications.append(f'{detail.medication.item_name} - {detail.dosage} {detail.frequency}')
+            
+            all_records.append({
+                'id': f'prescription_{prescription.id}',
+                'patient': {
+                    'id': prescription.patient.id,
+                    'first_name': prescription.patient.first_name,
+                    'last_name': prescription.patient.last_name
+                } if prescription.patient else None,
+                'recorded_by': {
+                    'id': prescription.doctor.id,
+                    'first_name': prescription.doctor.first_name,
+                    'last_name': prescription.doctor.last_name
+                } if prescription.doctor else None,
+                'record_type': 'prescription',
+                'description': f'Prescription: {", ".join(medications) if medications else "No medications listed"}',
+                'record_date': prescription.prescribed_date,
+                'source': 'prescription'
+            })
+        
+        # Sort all records by date (newest first)
+        all_records.sort(key=lambda x: x['record_date'], reverse=True)
+        
+        return Response(all_records)
