@@ -1,219 +1,279 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Sidebar } from "@/components/sidebar"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Calendar, FileText, Heart, Pill, Clock, MapPin, Plus } from "lucide-react"
+import { Calendar, Plus, FileText, Pill, Heart, LogOut, User } from "lucide-react"
+import { PatientSidebar } from "@/components/patient-sidebar"
 
 interface Appointment {
   id: string
   doctorName: string
-  specialty: string
+  type?: string
   date: string
-  time: string
-  status: "scheduled" | "confirmed" | "completed" | "cancelled"
-  location: string
+  status?: string
 }
 
 interface Prescription {
   id: string
   medication: string
   dosage: string
-  frequency: string
-  startDate: string
-  endDate: string
+  doctor: string
+  date: string
+}
+
+interface HealthRecord {
+  date: string
+  type: string
+  description: string
+  doctor: string
+}
+
+interface HealthMetric {
+  name: string
+  value: string
+  date: string
 }
 
 export default function PatientDashboard() {
-  const [userName, setUserName] = useState("Loading...")
+  const [userName, setUserName] = useState("Patient")
+  const [nextAppointment, setNextAppointment] = useState({
+    doctorName: "Dr. Andrew",
+    date: "20th October",
+  })
+  
   const [appointments, setAppointments] = useState<Appointment[]>([
     {
       id: "1",
-      doctorName: "Dr. Sarah Johnson",
-      specialty: "Cardiology",
-      date: "2024-12-15",
-      time: "10:00 AM",
-      status: "confirmed",
-      location: "Room 301",
+      doctorName: "Dr. Andrew",
+      type: "General Checkup",
+      date: "20th October",
+      status: "Scheduled"
     },
     {
       id: "2",
-      doctorName: "Dr. Michael Chen",
-      specialty: "General Practitioner",
-      date: "2024-12-20",
-      time: "2:30 PM",
-      status: "scheduled",
-      location: "Room 102",
-    },
+      doctorName: "Dr. Sarah",
+      type: "Follow-up",
+      date: "25th October",
+      status: "Pending"
+    }
   ])
 
-  const [prescriptions] = useState<Prescription[]>([
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([
     {
       id: "1",
-      medication: "Lisinopril",
-      dosage: "10mg",
-      frequency: "Once daily",
-      startDate: "2024-11-01",
-      endDate: "2024-12-31",
+      medication: "Amoxicillin",
+      dosage: "500mg twice daily",
+      doctor: "Dr. Andrew",
+      date: "15th October"
     },
     {
       id: "2",
-      medication: "Metformin",
-      dosage: "500mg",
-      frequency: "Twice daily",
-      startDate: "2024-10-15",
-      endDate: "2025-01-15",
+      medication: "Ibuprofen",
+      dosage: "400mg as needed",
+      doctor: "Dr. Sarah",
+      date: "18th October"
+    }
+  ])
+
+  const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([
+    {
+      date: "15th October",
+      type: "Blood Test",
+      description: "Regular checkup",
+      doctor: "Dr. Andrew"
     },
+    {
+      date: "10th October",
+      type: "X-Ray",
+      description: "Chest examination",
+      doctor: "Dr. Sarah"
+    }
+  ])
+
+  const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([
+    {
+      name: "Blood Pressure",
+      value: "120/80",
+      date: "Today"
+    },
+    {
+      name: "Weight",
+      value: "75 kg",
+      date: "Yesterday"
+    }
   ])
 
   useEffect(() => {
-    const email = localStorage.getItem("userEmail")
-    setUserName(email || "Patient")
+    const fetchPatientData = async () => {
+      try {
+        const accessToken = localStorage.getItem('access_token')
+        if (!accessToken) return
+
+        const response = await fetch('http://localhost:8000/api/patients/patients/me/', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (response.ok) {
+          const patient = await response.json()
+          setUserName(`${patient.first_name} ${patient.last_name}`)
+        }
+      } catch (error) {
+        console.error('Failed to fetch patient data:', error)
+      }
+    }
+
+    fetchPatientData()
   }, [])
 
-  const navItems = [
-    { icon: <Calendar className="w-4 h-4" />, label: "Appointments", href: "/patient/dashboard" },
-    { icon: <FileText className="w-4 h-4" />, label: "Medical Records", href: "/patient/records" },
-    { icon: <Pill className="w-4 h-4" />, label: "Prescriptions", href: "/patient/prescriptions" },
-    { icon: <Heart className="w-4 h-4" />, label: "Health Data", href: "/patient/health" },
-    { icon: <FileText className="w-4 h-4" />, label: "Billing", href: "/patient/billing" },
-  ]
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      scheduled: "bg-blue-100 text-blue-800",
-      confirmed: "bg-green-100 text-green-800",
-      completed: "bg-gray-100 text-gray-800",
-      cancelled: "bg-red-100 text-red-800",
-    }
-    return colors[status] || "bg-gray-100 text-gray-800"
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user_type')
+    window.location.href = '/login'
   }
+
+
 
   return (
     <div className="flex">
-      <Sidebar userRole="patient" userName={userName} navItems={navItems} />
+      <PatientSidebar userName={userName} />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 bg-background">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">My Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's your health overview.</p>
+        <div className="mb-6 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-foreground">Welcome to your dashboard</h1>
+          <Button 
+            onClick={handleLogout}
+            variant="outline" 
+            className="gap-2 border-border text-foreground hover:bg-secondary"
+          >
+            Logout
+          </Button>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card className="bg-card border-border">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Upcoming Appointments</p>
-                  <p className="text-2xl font-bold text-foreground">2</p>
-                </div>
-                <Calendar className="w-8 h-8 text-accent" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Active Prescriptions</p>
-                  <p className="text-2xl font-bold text-foreground">{prescriptions.length}</p>
-                </div>
-                <Pill className="w-8 h-8 text-accent" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Last Check-up</p>
-                  <p className="text-lg font-bold text-foreground">12 days ago</p>
-                </div>
-                <Heart className="w-8 h-8 text-accent" />
-              </div>
-            </CardContent>
-          </Card>
+        {/* Next Appointment Alert */}
+        <div className="mb-6 flex justify-between items-center p-4 border border-gray-200 rounded-lg">
+          <p className="text-sm text-foreground">
+            Hello {userName}, Your next appointment is due {nextAppointment.date} by {nextAppointment.doctorName}
+          </p>
+          <Button 
+            onClick={() => window.location.href = '/patient/book-appointment'}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          >
+            Book New Appointment
+          </Button>
         </div>
 
-        {/* Appointments Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-foreground">My Appointments</h2>
-            <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Plus className="w-4 h-4" />
-              Book Appointment
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {appointments.map((apt) => (
-              <Card key={apt.id} className="bg-card border-border hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-foreground">{apt.doctorName}</h3>
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(apt.status)}`}>
-                          {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Upcoming Appointments */}
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-center text-lg font-semibold">Upcoming Appointments</CardTitle>
+            </CardHeader>
+            <CardContent className="min-h-[200px]">
+              {appointments.length > 0 ? (
+                <div className="space-y-3">
+                  {appointments.map((apt) => (
+                    <div key={apt.id} className="p-3 border border-gray-200 rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-foreground">{apt.doctorName}</p>
+                          <p className="text-sm text-muted-foreground">{apt.type}</p>
+                          <p className="text-sm text-muted-foreground">{apt.date}</p>
+                        </div>
+                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                          {apt.status}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-3">{apt.specialty}</p>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="w-4 h-4" />
-                          {new Date(apt.date).toLocaleDateString()}
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="w-4 h-4" />
-                          {apt.time}
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground col-span-2">
-                          <MapPin className="w-4 h-4" />
-                          {apt.location}
-                        </div>
-                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      className="ml-4 border-border text-foreground hover:bg-secondary bg-transparent"
-                    >
-                      Details
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No upcoming appointments
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Prescriptions Section */}
-        <div>
-          <h2 className="text-xl font-bold text-foreground mb-4">Active Prescriptions</h2>
-          <div className="space-y-3">
-            {prescriptions.map((rx) => (
-              <Card key={rx.id} className="bg-card border-border">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-foreground">{rx.medication}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {rx.dosage} - {rx.frequency}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Valid until {new Date(rx.endDate).toLocaleDateString()}
-                      </p>
+          {/* Prescriptions */}
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-center text-lg font-semibold">Prescriptions</CardTitle>
+            </CardHeader>
+            <CardContent className="min-h-[200px]">
+              {prescriptions.length > 0 ? (
+                <div className="space-y-3">
+                  {prescriptions.map((rx) => (
+                    <div key={rx.id} className="p-3 border border-gray-200 rounded-lg">
+                      <p className="font-medium text-foreground">{rx.medication}</p>
+                      <p className="text-sm text-muted-foreground">{rx.dosage}</p>
+                      <p className="text-xs text-muted-foreground">By {rx.doctor} - {rx.date}</p>
                     </div>
-                    <Pill className="w-5 h-5 text-accent" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No active prescriptions
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Health Records */}
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-center text-lg font-semibold">Recent Health Records</CardTitle>
+            </CardHeader>
+            <CardContent className="min-h-[200px]">
+              {healthRecords.length > 0 ? (
+                <div className="space-y-3">
+                  {healthRecords.map((record, index) => (
+                    <div key={index} className="p-3 border border-gray-200 rounded-lg">
+                      <p className="font-medium text-foreground">{record.type}</p>
+                      <p className="text-sm text-muted-foreground">{record.description}</p>
+                      <p className="text-xs text-muted-foreground">By {record.doctor} - {record.date}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No health records available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Health Metrics */}
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-center text-lg font-semibold">Health Metrics</CardTitle>
+            </CardHeader>
+            <CardContent className="min-h-[200px]">
+              {healthMetrics.length > 0 ? (
+                <div className="space-y-3">
+                  {healthMetrics.map((metric, index) => (
+                    <div key={index} className="p-3 border border-gray-200 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <p className="font-medium text-foreground">{metric.name}</p>
+                        <p className="text-lg font-bold text-primary">{metric.value}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{metric.date}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No health metrics available
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>

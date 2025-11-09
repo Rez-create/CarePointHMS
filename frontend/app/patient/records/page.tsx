@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Sidebar } from "@/components/sidebar"
+import { PatientSidebar } from "@/components/patient-sidebar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, Download, Eye, Calendar, User, Pill } from "lucide-react"
+import { FileText, Download, Eye, Calendar, User, Plus } from "lucide-react"
 
 interface MedicalRecord {
   id: string
@@ -49,21 +49,35 @@ export default function MedicalRecords() {
   ])
 
   useEffect(() => {
-    const email = localStorage.getItem("userEmail")
-    setUserName(email || "Patient")
+    const fetchPatientName = async () => {
+      try {
+        const accessToken = localStorage.getItem('access_token')
+        if (!accessToken) return
+
+        const response = await fetch('http://localhost:8000/api/patients/patients/me/', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (response.ok) {
+          const patient = await response.json()
+          setUserName(`${patient.first_name} ${patient.last_name}`)
+        }
+      } catch (error) {
+        console.error('Failed to fetch patient name:', error)
+      }
+    }
+
+    fetchPatientName()
   }, [])
 
-  const navItems = [
-    { icon: <Calendar className="w-4 h-4" />, label: "Appointments", href: "/patient/dashboard" },
-    { icon: <FileText className="w-4 h-4" />, label: "Medical Records", href: "/patient/records" },
-    { icon: <Pill className="w-4 h-4" />, label: "Prescriptions", href: "/patient/prescriptions" },
-    { icon: <User className="w-4 h-4" />, label: "Health Data", href: "/patient/health" },
-    { icon: <FileText className="w-4 h-4" />, label: "Billing", href: "/patient/billing" },
-  ]
+
 
   return (
     <div className="flex">
-      <Sidebar userRole="patient" userName={userName} navItems={navItems} />
+      <PatientSidebar userName={userName} />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 bg-background">
         <h1 className="text-3xl font-bold text-foreground mb-2">Medical Records</h1>

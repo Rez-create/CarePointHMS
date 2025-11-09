@@ -42,6 +42,7 @@ export default function BookAppointment() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState("")
+  const [doctors, setDoctors] = useState<{id: number, name: string, specialization: string}[]>([])
 
   useEffect(() => {
     // Check if user is logged in as patient
@@ -49,18 +50,31 @@ export default function BookAppointment() {
     if (userType !== 'patient') {
       setShowRegistrationDialog(true)
     }
+
+    // Fetch doctors from API
+    fetchDoctors()
   }, [])
 
-  const departments = ["General Medicine", "Cardiology", "Orthopedics", "Pediatrics", "Neurology", "Dermatology"]
-
-  const doctorsByDepartment: Record<string, string[]> = {
-    "General Medicine": ["Dr. Smith", "Dr. Johnson"],
-    Cardiology: ["Dr. Williams", "Dr. Brown"],
-    Orthopedics: ["Dr. Davis", "Dr. Miller"],
-    Pediatrics: ["Dr. Wilson", "Dr. Moore"],
-    Neurology: ["Dr. Taylor", "Dr. Anderson"],
-    Dermatology: ["Dr. Thomas", "Dr. Jackson"],
+  const fetchDoctors = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/patients/patients/doctors/')
+      const data = await response.json()
+      if (response.ok) {
+        setDoctors(data.results)
+      }
+    } catch (error) {
+      console.error('Failed to fetch doctors:', error)
+    }
   }
+
+  const departments = [...new Set(doctors.map(doc => doc.specialization))]
+  const doctorsByDepartment = doctors.reduce((acc, doctor) => {
+    if (!acc[doctor.specialization]) {
+      acc[doctor.specialization] = []
+    }
+    acc[doctor.specialization].push(doctor.name)
+    return acc
+  }, {} as Record<string, string[]>)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -131,18 +145,41 @@ export default function BookAppointment() {
       return
     }
 
-    // Simulate booking
-    setTimeout(() => {
-      console.log("[v0] Appointment booked:", formData)
-      localStorage.setItem("appointmentData", JSON.stringify(formData))
-      setSuccess(true)
-      setLoading(false)
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      const response = await fetch('http://localhost:8000/api/patients/patients/book_appointment/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          appointmentDate: formData.appointmentDate,
+          appointmentTime: formData.appointmentTime,
+          department: formData.department,
+          doctor: formData.doctor,
+          reasonForVisit: formData.reasonForVisit
+        })
+      })
 
-      // Redirect to patient dashboard after 2 seconds
-      setTimeout(() => {
-        window.location.href = "/patient/dashboard"
-      }, 2000)
-    }, 1000)
+      if (response.ok) {
+        setSuccess(true)
+        setTimeout(() => {
+          window.location.href = "/patient/appointments"
+        }, 2000)
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || 'Failed to book appointment')
+      }
+    } catch (error) {
+      setError('Network error. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (success) {
@@ -255,11 +292,6 @@ export default function BookAppointment() {
       </Dialog>
 
       <main className="min-h-screen bg-gradient-to-br from-background to-secondary p-4">
-        <Link href="/" className="inline-block mb-8">
-          <Button variant="ghost" size="sm" className="gap-2">
-            Back to Home
-          </Button>
-        </Link>
 
       <div className="max-w-2xl mx-auto">
         <Card className="border-border shadow-lg">
@@ -467,11 +499,14 @@ export default function BookAppointment() {
                 >
                   {loading ? "Booking..." : "Book Appointment"}
                 </Button>
-                <Link href="/" className="flex-1">
-                  <Button variant="outline" className="w-full border-border text-foreground bg-transparent">
-                    Cancel
-                  </Button>
-                </Link>
+                <Button 
+                  type="button"
+                  onClick={() => window.history.back()}
+                  variant="outline" 
+                  className="flex-1 border-border text-foreground bg-transparent"
+                >
+                  Cancel
+                </Button>
               </div>
 
               <p className="text-xs text-muted-foreground text-center">
