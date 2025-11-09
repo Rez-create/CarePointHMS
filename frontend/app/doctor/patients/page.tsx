@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Sidebar } from "@/components/sidebar"
+import { DoctorSidebar } from "@/components/doctor-sidebar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Users, Search, Calendar, Phone, Mail, Eye } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Search, Phone, Mail, Eye } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 interface Patient {
@@ -21,49 +22,48 @@ interface Patient {
 export default function MyPatients() {
   const [userName, setUserName] = useState("Loading...")
   const [searchTerm, setSearchTerm] = useState("")
-  const [patients] = useState<Patient[]>([
-    {
-      id: "P001",
-      name: "John Smith",
-      age: 55,
-      gender: "Male",
-      phone: "555-0101",
-      email: "john@email.com",
-      lastVisit: "2024-11-20",
-      conditions: ["Hypertension", "Type 2 Diabetes"],
-    },
-    {
-      id: "P002",
-      name: "Emma Wilson",
-      age: 42,
-      gender: "Female",
-      phone: "555-0102",
-      email: "emma@email.com",
-      lastVisit: "2024-11-19",
-      conditions: ["Asthma", "Allergies"],
-    },
-    {
-      id: "P003",
-      name: "Robert Johnson",
-      age: 68,
-      gender: "Male",
-      phone: "555-0103",
-      email: "robert@email.com",
-      lastVisit: "2024-11-18",
-      conditions: ["Coronary Artery Disease", "Hypertension"],
-    },
-  ])
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
-    const email = localStorage.getItem("userEmail")
-    setUserName(email || "Doctor")
+    const fetchData = async () => {
+      try {
+        const accessToken = localStorage.getItem('access_token')
+        
+        // Fetch doctor's patients
+        const response = await fetch('http://localhost:8000/api/patients/patients/doctor_patients/', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setPatients(data.results)
+        }
+        
+        // Set doctor name
+        const email = localStorage.getItem("userEmail")
+        setUserName(email || "Doctor")
+      } catch (error) {
+        console.error('Failed to fetch patients:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
   }, [])
 
-  const navItems = [
-    { icon: <Calendar className="w-4 h-4" />, label: "Schedule", href: "/doctor/dashboard" },
-    { icon: <Users className="w-4 h-4" />, label: "My Patients", href: "/doctor/patients" },
-    { icon: <Mail className="w-4 h-4" />, label: "Lab Requests", href: "/doctor/lab-requests" },
-  ]
+  const openPatientModal = (patient: Patient) => {
+    setSelectedPatient(patient)
+    setShowModal(true)
+  }
+
+
 
   const filteredPatients = patients.filter(
     (p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.id.includes(searchTerm),
@@ -71,7 +71,7 @@ export default function MyPatients() {
 
   return (
     <div className="flex">
-      <Sidebar userRole="doctor" userName={userName} navItems={navItems} />
+      <DoctorSidebar userName={userName} />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 bg-background">
         <h1 className="text-3xl font-bold text-foreground mb-2">My Patients</h1>
@@ -102,7 +102,7 @@ export default function MyPatients() {
               <div>
                 <p className="text-sm text-muted-foreground">Avg. Age</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {Math.round(patients.reduce((sum, p) => sum + p.age, 0) / patients.length)}
+                  {patients.length > 0 ? Math.round(patients.reduce((sum, p) => sum + (typeof p.age === 'number' ? p.age : 0), 0) / patients.length) : 0}
                 </p>
               </div>
               <div>
@@ -114,8 +114,17 @@ export default function MyPatients() {
         </Card>
 
         {/* Patients List */}
-        <div className="space-y-4">
-          {filteredPatients.map((patient) => (
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Loading patients...</p>
+          </div>
+        ) : patients.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No patients found</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredPatients.map((patient) => (
             <Card key={patient.id} className="bg-card border-border hover:shadow-md transition-shadow">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
@@ -149,16 +158,75 @@ export default function MyPatients() {
                       Last Visit: {new Date(patient.lastVisit).toLocaleDateString()}
                     </p>
                   </div>
-                  <Button className="ml-4 bg-primary hover:bg-primary/90 text-primary-foreground">
+                  <Button 
+                    onClick={() => openPatientModal(patient)}
+                    className="ml-4 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  >
                     <Eye className="w-4 h-4 mr-1" />
                     View Profile
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
+
+      {/* Patient Profile Modal */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Patient Profile</DialogTitle>
+          </DialogHeader>
+          {selectedPatient && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Name</p>
+                  <p className="font-semibold">{selectedPatient.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">ID</p>
+                  <p className="font-semibold">{selectedPatient.id}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Age</p>
+                  <p className="font-semibold">{selectedPatient.age} years</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Gender</p>
+                  <p className="font-semibold">{selectedPatient.gender}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Phone</p>
+                  <p className="font-semibold">{selectedPatient.phone}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-semibold">{selectedPatient.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Last Visit</p>
+                  <p className="font-semibold">{new Date(selectedPatient.lastVisit).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Medical Conditions</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedPatient.conditions.map((condition) => (
+                    <span key={condition} className="text-xs px-3 py-1 bg-blue-100 text-blue-800 rounded-full">
+                      {condition}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

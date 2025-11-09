@@ -12,13 +12,12 @@ class Appointment(models.Model):
     ]
 
     STATUS_CHOICES = [
-        ('booked', 'Booked'),
+        ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
         ('checked_in', 'Checked In'),
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
-        ('no_show', 'No Show'),
     ]
 
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
@@ -26,7 +25,7 @@ class Appointment(models.Model):
     appointment_type = models.CharField(max_length=20, choices=APPOINTMENT_TYPES)
     appointment_datetime = models.DateTimeField()
     reason_for_visit = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='booked')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     cancellation_reason = models.TextField(blank=True, null=True)
     created_date = models.DateTimeField(default=timezone.now)
     updated_date = models.DateTimeField(auto_now=True)

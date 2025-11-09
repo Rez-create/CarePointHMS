@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Sidebar } from "@/components/sidebar"
+import { DoctorSidebar } from "@/components/doctor-sidebar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Users, Calendar, TestTubes, Plus, Eye, Trash2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { TestTubes, Plus, Eye, Trash2 } from "lucide-react"
 
 interface LabRequest {
   id: string
@@ -18,46 +20,82 @@ interface LabRequest {
 
 export default function LabRequests() {
   const [userName, setUserName] = useState("Loading...")
-  const [requests] = useState<LabRequest[]>([
-    {
-      id: "LAB-REQ-001",
-      patientName: "John Smith",
-      testName: "Complete Blood Count",
-      requestDate: "2024-11-20",
-      status: "completed",
-      reason: "Regular checkup",
-      resultAvailable: true,
-    },
-    {
-      id: "LAB-REQ-002",
-      patientName: "Emma Wilson",
-      testName: "Thyroid Panel",
-      requestDate: "2024-11-21",
-      status: "in-progress",
-      reason: "Fatigue evaluation",
-      resultAvailable: false,
-    },
-    {
-      id: "LAB-REQ-003",
-      patientName: "Robert Johnson",
-      testName: "Lipid Profile",
-      requestDate: "2024-11-22",
-      status: "pending",
-      reason: "Cardiovascular risk assessment",
-      resultAvailable: false,
-    },
-  ])
+  const [requests, setRequests] = useState<LabRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [patients, setPatients] = useState<any[]>([])
+  const [formData, setFormData] = useState({
+    patient_id: '',
+    test_name: '',
+    priority: 'routine'
+  })
 
   useEffect(() => {
-    const email = localStorage.getItem("userEmail")
-    setUserName(email || "Doctor")
+    const fetchData = async () => {
+      try {
+        const accessToken = localStorage.getItem('access_token')
+        
+        // Fetch lab requests
+        const requestsResponse = await fetch('http://localhost:8000/api/laboratory/requests/doctor_requests/', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (requestsResponse.ok) {
+          const data = await requestsResponse.json()
+          setRequests(data.results)
+        }
+        
+        // Fetch patients for dropdown
+        const patientsResponse = await fetch('http://localhost:8000/api/patients/patients/doctor_patients/', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (patientsResponse.ok) {
+          const patientsData = await patientsResponse.json()
+          setPatients(patientsData.results)
+        }
+        
+        const email = localStorage.getItem("userEmail")
+        setUserName(email || "Doctor")
+      } catch (error) {
+        console.error('Failed to fetch data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
   }, [])
 
-  const navItems = [
-    { icon: <Calendar className="w-4 h-4" />, label: "Schedule", href: "/doctor/dashboard" },
-    { icon: <Users className="w-4 h-4" />, label: "My Patients", href: "/doctor/patients" },
-    { icon: <TestTubes className="w-4 h-4" />, label: "Lab Requests", href: "/doctor/lab-requests" },
-  ]
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      const response = await fetch('http://localhost:8000/api/laboratory/requests/create_request/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      })
+      
+      if (response.ok) {
+        setShowModal(false)
+        setFormData({ patient_id: '', test_name: '', priority: 'routine' })
+        window.location.reload()
+      }
+    } catch (error) {
+      console.error('Failed to create lab request:', error)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     if (status === "completed") return "bg-green-100 text-green-800"
@@ -67,7 +105,7 @@ export default function LabRequests() {
 
   return (
     <div className="flex">
-      <Sidebar userRole="doctor" userName={userName} navItems={navItems} />
+      <DoctorSidebar userName={userName} />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 bg-background">
         <div className="flex items-center justify-between mb-8">
@@ -75,7 +113,10 @@ export default function LabRequests() {
             <h1 className="text-3xl font-bold text-foreground mb-2">Lab Requests</h1>
             <p className="text-muted-foreground">Manage and review lab test requests</p>
           </div>
-          <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Button 
+            onClick={() => setShowModal(true)}
+            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+          >
             <Plus className="w-4 h-4" />
             New Request
           </Button>
@@ -114,8 +155,17 @@ export default function LabRequests() {
         </div>
 
         {/* Requests List */}
-        <div className="space-y-4">
-          {requests.map((request) => (
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Loading lab requests...</p>
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No lab requests found</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {requests.map((request) => (
             <Card key={request.id} className="bg-card border-border">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
@@ -156,9 +206,66 @@ export default function LabRequests() {
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
+
+      {/* New Lab Request Modal */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Lab Request</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Patient</label>
+              <select
+                value={formData.patient_id}
+                onChange={(e) => setFormData(prev => ({ ...prev, patient_id: e.target.value }))}
+                className="w-full px-3 py-2 border border-border rounded-md"
+                required
+              >
+                <option value="">Select Patient</option>
+                {patients.map((patient) => (
+                  <option key={patient.id} value={patient.id.replace('P', '')}>
+                    {patient.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Test Name</label>
+              <Input
+                value={formData.test_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, test_name: e.target.value }))}
+                placeholder="Enter test name..."
+                required
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Priority</label>
+              <select
+                value={formData.priority}
+                onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+                className="w-full px-3 py-2 border border-border rounded-md"
+              >
+                <option value="routine">Routine</option>
+                <option value="urgent">Urgent</option>
+                <option value="emergency">Emergency</option>
+              </select>
+            </div>
+            <div className="flex gap-3">
+              <Button type="submit" className="flex-1">
+                Create Request
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

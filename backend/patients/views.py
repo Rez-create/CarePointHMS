@@ -2,6 +2,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils import timezone
+from datetime import date
 from .models import Patient, MedicalRecord
 from .serializers import PatientSerializer, MedicalRecordSerializer
 
@@ -239,6 +241,117 @@ class PatientViewSet(viewsets.ModelViewSet):
         
         return Response({'results': billing_data})
 
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
+    def doctor_appointments(self, request):
+        from appointments.models import Appointment
+        from userauth.models import Staff
+        
+        # Get doctor from token or use first doctor for testing
+        try:
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                import jwt
+                from django.conf import settings
+                
+                token = auth_header.split(' ')[1]
+                decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+                user_id = decoded_token.get('user_id')
+                doctor = Staff.objects.get(id=user_id, role='doctor')
+            else:
+                doctor = Staff.objects.filter(role='doctor').first()
+        except:
+            doctor = Staff.objects.filter(role='doctor').first()
+        
+        if not doctor:
+            return Response({'error': 'Doctor not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get all appointments for the doctor
+        appointments = Appointment.objects.filter(
+            doctor=doctor
+        ).order_by('appointment_datetime')
+        
+        appointment_data = []
+        for apt in appointments:
+            appointment_data.append({
+                'id': str(apt.id),
+                'patientName': f'{apt.patient.first_name} {apt.patient.last_name}',
+                'patientId': f'P{apt.patient.id:03d}',
+                'time': apt.appointment_datetime.strftime('%I:%M %p'),
+                'status': apt.status,
+                'reason': apt.reason_for_visit or 'General consultation',
+                'phone': apt.patient.contact_phone or 'N/A'
+            })
+        
+        return Response({'results': appointment_data})
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
+    def doctor_patients(self, request):
+        from appointments.models import Appointment
+        from userauth.models import Staff
+        
+        # Get doctor from token or use first doctor for testing
+        try:
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                import jwt
+                from django.conf import settings
+                
+                token = auth_header.split(' ')[1]
+                decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+                user_id = decoded_token.get('user_id')
+                doctor = Staff.objects.get(id=user_id, role='doctor')
+            else:
+                doctor = Staff.objects.filter(role='doctor').first()
+        except:
+            doctor = Staff.objects.filter(role='doctor').first()
+        
+        if not doctor:
+            return Response({'error': 'Doctor not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get unique patients who have appointments with this doctor
+        appointments = Appointment.objects.filter(doctor=doctor).select_related('patient')
+        unique_patients = {}
+        
+        for apt in appointments:
+            patient = apt.patient
+            if patient.id not in unique_patients:
+                # Get latest appointment for last visit
+                latest_apt = Appointment.objects.filter(
+                    doctor=doctor, 
+                    patient=patient
+                ).order_by('-appointment_datetime').first()
+                
+                unique_patients[patient.id] = {
+                    'id': f'P{patient.id:03d}',
+                    'name': f'{patient.first_name} {patient.last_name}',
+                    'age': patient.age if hasattr(patient, 'age') else 'N/A',
+                    'gender': patient.gender,
+                    'phone': patient.contact_phone or 'N/A',
+                    'email': patient.contact_email,
+                    'lastVisit': latest_apt.appointment_datetime.date() if latest_apt else 'N/A',
+                    'conditions': ['General Care']  # Default condition
+                }
+        
+        return Response({'results': list(unique_patients.values())})
+
+
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
+    def update_appointment_status(self, request):
+        from appointments.models import Appointment
+        
+        appointment_id = request.data.get('appointment_id')
+        new_status = request.data.get('status')
+        
+        try:
+            appointment = Appointment.objects.get(id=appointment_id)
+            appointment.status = new_status
+            appointment.save()
+            
+            return Response({'message': 'Appointment status updated successfully'})
+        except Appointment.DoesNotExist:
+            return Response({'error': 'Appointment not found'}, status=status.HTTP_404_NOT_FOUND)
+
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
     def book_appointment(self, request):
         patient = self.get_patient_from_token(request)
@@ -265,7 +378,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                 appointment_type='consultation',
                 appointment_datetime=appointment_datetime,
                 reason_for_visit=request.data.get('reasonForVisit', ''),
-                status='booked'
+                status='pending'
             )
             
             return Response({
