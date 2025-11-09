@@ -1,6 +1,11 @@
+asgiref==3.10.0
 Django==5.2.8
-djangorestframework
-djangorestframework-simplejwt
-django-cors-headers
-mysql-connector-python
-django-jazzmin
+django-cors-headers==4.9.0
+django-jazzmin==3.0.1
+djangorestframework==3.16.1
+djangorestframework_simplejwt==5.5.1
+mysql-connector-python==9.5.0
+PyJWT==2.10.1
+python-dotenv==1.2.1
+sqlparse==0.5.3
+tzdata==2025.2

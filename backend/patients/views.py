@@ -89,9 +89,9 @@ class PatientViewSet(viewsets.ModelViewSet):
         if not patient:
             # Return test data if no patient found
             return Response({
-                'first_name': 'John',
-                'last_name': 'Doe', 
-                'contact_email': 'john.doe@email.com',
+                'first_name': 'James',
+                'last_name': 'Gregory', 
+                'contact_email': 'jamesgregory@email.com',
                 'contact_phone': '+254 712 345 678',
                 'date_of_birth': '1990-05-15',
                 'gender': 'M',
