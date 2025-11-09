@@ -1,13 +1,14 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Heart, Lock, Mail, ArrowLeft } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Heart, Lock, Mail, ArrowLeft, Users, UserCheck } from "lucide-react"
 import Link from "next/link"
 
 type UserRole = "patient" | "doctor" | "admin" | "staff" | "pharmacist" | "lab-tech"
@@ -15,23 +16,58 @@ type UserRole = "patient" | "doctor" | "admin" | "staff" | "pharmacist" | "lab-t
 export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState<UserRole>("patient")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [loginType, setLoginType] = useState<"staff" | "patient">("staff")
+  const [showSuccess, setShowSuccess] = useState(false)
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('registered') === 'true') {
+      setShowSuccess(true)
+      setLoginType('patient')
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setLoading(true)
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    // Simulate login - in production, call backend API
-    setTimeout(() => {
-      if (email && password) {
-        // Store user session
-        localStorage.setItem("userRole", role)
-        localStorage.setItem("userEmail", email)
+    try {
+      const endpoint = loginType === 'staff' 
+        ? 'http://localhost:8000/api/auth/staff/login/'
+        : 'http://localhost:8000/api/patients/patients/login/';
 
-        // Redirect to appropriate dashboard
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Store tokens and user data
+      localStorage.setItem('access_token', data.access);
+      localStorage.setItem('refresh_token', data.refresh);
+      localStorage.setItem('user_type', data.user_type);
+      
+      // Redirect based on user type
+      if (data.user_type === 'patient') {
+        window.location.href = '/patient/dashboard';
+      } else {
+        const userRole = data.user.role as UserRole;
+        localStorage.setItem('userRole', userRole);
+
         const dashboards: Record<UserRole, string> = {
           patient: "/patient/dashboard",
           doctor: "/doctor/dashboard",
@@ -39,24 +75,16 @@ export default function Login() {
           staff: "/staff/dashboard",
           pharmacist: "/pharmacy/dashboard",
           "lab-tech": "/lab/dashboard",
-        }
+        };
 
-        window.location.href = dashboards[role]
-      } else {
-        setError("Please enter email and password")
+        window.location.href = dashboards[userRole] || "/staff/dashboard";
       }
-      setLoading(false)
-    }, 800)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to login. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }
-
-  const roles: Array<{ value: UserRole; label: string; description: string }> = [
-    { value: "patient", label: "Patient", description: "Book appointments, view medical records" },
-    { value: "doctor", label: "Doctor", description: "Manage appointments, prescribe medications" },
-    { value: "admin", label: "Administrator", description: "System oversight and management" },
-    { value: "staff", label: "Receptionist", description: "Patient registration and scheduling" },
-    { value: "pharmacist", label: "Pharmacist", description: "Manage prescriptions and inventory" },
-    { value: "lab-tech", label: "Lab Technician", description: "Process and record lab tests" },
-  ]
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
@@ -108,38 +136,34 @@ export default function Login() {
           <div>
             <Card className="border-border shadow-lg">
               <CardHeader>
-                <CardTitle className="text-2xl text-foreground">Welcome to CarePoint</CardTitle>
-                <CardDescription>Sign in with your credentials</CardDescription>
+                <CardTitle className="text-2xl text-foreground">Welcome Back</CardTitle>
+                <CardDescription>Sign in to your account</CardDescription>
               </CardHeader>
               <CardContent>
+                <Tabs value={loginType} onValueChange={(value) => setLoginType(value as "staff" | "patient")} className="mb-6">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="staff" className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Staff Login
+                    </TabsTrigger>
+                    <TabsTrigger value="patient" className="flex items-center gap-2">
+                      <UserCheck className="w-4 h-4" />
+                      Patient Login
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
                 <form onSubmit={handleLogin} className="space-y-6">
+                  {showSuccess && (
+                    <Alert className="border-green-200 bg-green-50 text-green-800">
+                      <AlertDescription>Registration successful! Please sign in with your credentials.</AlertDescription>
+                    </Alert>
+                  )}
                   {error && (
                     <Alert variant="destructive">
                       <AlertDescription>{error}</AlertDescription>
                     </Alert>
                   )}
-
-                  {/* Role Selection */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium text-foreground">Select Role</label>
-                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-                      {roles.map((r) => (
-                        <button
-                          key={r.value}
-                          type="button"
-                          onClick={() => setRole(r.value)}
-                          className={`p-3 rounded-lg border-2 text-left transition-all ${
-                            role === r.value
-                              ? "border-primary bg-secondary text-foreground"
-                              : "border-border hover:border-accent text-foreground"
-                          }`}
-                        >
-                          <div className="font-medium text-sm">{r.label}</div>
-                          <div className="text-xs text-muted-foreground">{r.description}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
                   {/* Email Input */}
                   <div className="space-y-2">
@@ -151,7 +175,7 @@ export default function Login() {
                       <Input
                         id="email"
                         type="email"
-                        placeholder="your.email@hospital.com"
+                        placeholder={loginType === 'staff' ? "staff@hospital.com" : "patient@email.com"}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-10 bg-input border-border text-foreground placeholder:text-muted-foreground"
@@ -185,17 +209,8 @@ export default function Login() {
                     disabled={loading}
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                   >
-                    {loading ? "Signing in..." : "Sign In"}
+                    {loading ? "Signing in..." : `Sign In as ${loginType === 'staff' ? 'Staff' : 'Patient'}`}
                   </Button>
-
-                  {/* Demo Credentials */}
-                  <div className="pt-4 border-t border-border">
-                    <p className="text-xs text-muted-foreground mb-2">Demo Credentials:</p>
-                    <div className="space-y-1 text-xs font-mono bg-secondary/50 p-2 rounded text-foreground">
-                      <p>Email: demo@hospital.com</p>
-                      <p>Password: demo123</p>
-                    </div>
-                  </div>
                 </form>
               </CardContent>
             </Card>

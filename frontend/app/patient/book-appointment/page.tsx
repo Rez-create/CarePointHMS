@@ -1,12 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Heart, Calendar, Clock, User, Mail, Phone, ArrowLeft } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Link from "next/link"
 
 interface AppointmentData {
@@ -22,6 +22,12 @@ interface AppointmentData {
 }
 
 export default function BookAppointment() {
+  const [showRegistrationDialog, setShowRegistrationDialog] = useState(false)
+  const [showLoginForm, setShowLoginForm] = useState(false)
+  const [loginEmail, setLoginEmail] = useState("")
+  const [loginPassword, setLoginPassword] = useState("")
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError, setLoginError] = useState("")
   const [formData, setFormData] = useState<AppointmentData>({
     firstName: "",
     lastName: "",
@@ -36,6 +42,14 @@ export default function BookAppointment() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    // Check if user is logged in as patient
+    const userType = localStorage.getItem('user_type')
+    if (userType !== 'patient') {
+      setShowRegistrationDialog(true)
+    }
+  }, [])
 
   const departments = ["General Medicine", "Cardiology", "Orthopedics", "Pediatrics", "Neurology", "Dermatology"]
 
@@ -55,6 +69,44 @@ export default function BookAppointment() {
     // Reset doctor selection when department changes
     if (name === "department") {
       setFormData((prev) => ({ ...prev, doctor: "" }))
+    }
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginError("")
+    setLoginLoading(true)
+
+    try {
+      const response = await fetch('http://localhost:8000/api/patients/patients/login/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: loginEmail,
+          password: loginPassword,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed')
+      }
+
+      // Store tokens and user data
+      localStorage.setItem('access_token', data.access)
+      localStorage.setItem('refresh_token', data.refresh)
+      localStorage.setItem('user_type', data.user_type)
+      
+      // Close dialogs and allow booking
+      setShowRegistrationDialog(false)
+      setShowLoginForm(false)
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : 'Login failed. Please try again.')
+    } finally {
+      setLoginLoading(false)
     }
   }
 
@@ -86,9 +138,9 @@ export default function BookAppointment() {
       setSuccess(true)
       setLoading(false)
 
-      // Redirect to login after 2 seconds
+      // Redirect to patient dashboard after 2 seconds
       setTimeout(() => {
-        window.location.href = "/login"
+        window.location.href = "/patient/dashboard"
       }, 2000)
     }, 1000)
   }
@@ -99,7 +151,6 @@ export default function BookAppointment() {
         <Card className="border-border shadow-lg max-w-md w-full">
           <CardContent className="pt-12 pb-12 text-center space-y-6">
             <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
-              <Calendar className="w-8 h-8 text-primary" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-foreground mb-2">Appointment Booked!</h2>
@@ -117,20 +168,104 @@ export default function BookAppointment() {
     formData.department && doctorsByDepartment[formData.department] ? doctorsByDepartment[formData.department] : []
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-background to-secondary p-4">
-      <Link href="/" className="inline-block mb-8">
-        <Button variant="ghost" size="sm" className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Home
-        </Button>
-      </Link>
+    <>
+      {/* Registration Check Dialog */}
+      <Dialog open={showRegistrationDialog && !showLoginForm} onOpenChange={setShowRegistrationDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              Patient Registration Required
+            </DialogTitle>
+            <DialogDescription>
+              To book an appointment, you need to be registered as a patient. Are you already registered?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-6">
+            <Button onClick={() => setShowLoginForm(true)} className="w-full gap-2">
+              Yes
+            </Button>
+            <Link href="/patient/register" className="w-full">
+              <Button variant="outline" className="w-full gap-2">
+                No
+              </Button>
+            </Link>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Patient Login Dialog */}
+      <Dialog open={showLoginForm} onOpenChange={setShowLoginForm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              Patient Sign In
+            </DialogTitle>
+            <DialogDescription>
+              Sign in to your patient account to book an appointment
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleLogin} className="space-y-4 mt-6">
+            {loginError && (
+              <Alert variant="destructive">
+                <AlertDescription>{loginError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-2">
+              <label htmlFor="loginEmail" className="text-sm font-medium">
+                Email Address
+              </label>
+              <div className="relative">
+                <Input
+                  id="loginEmail"
+                  type="email"
+                  placeholder="patient@email.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="loginPassword" className="text-sm font-medium">
+                Password
+              </label>
+              <div className="relative">
+                <Input
+                  id="loginPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button type="submit" disabled={loginLoading} className="flex-1">
+                {loginLoading ? "Signing in..." : "Sign In"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowLoginForm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <main className="min-h-screen bg-gradient-to-br from-background to-secondary p-4">
+        <Link href="/" className="inline-block mb-8">
+          <Button variant="ghost" size="sm" className="gap-2">
+            Back to Home
+          </Button>
+        </Link>
 
       <div className="max-w-2xl mx-auto">
         <Card className="border-border shadow-lg">
           <CardHeader>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
                 <CardTitle className="text-2xl text-foreground">Book an Appointment</CardTitle>
@@ -149,7 +284,6 @@ export default function BookAppointment() {
               {/* Patient Information */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  <User className="w-4 h-4" />
                   Your Information
                 </h3>
 
@@ -190,7 +324,6 @@ export default function BookAppointment() {
                       Email Address *
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="email"
                         name="email"
@@ -208,7 +341,6 @@ export default function BookAppointment() {
                       Phone Number *
                     </label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="phone"
                         name="phone"
@@ -226,7 +358,6 @@ export default function BookAppointment() {
               {/* Appointment Details */}
               <div className="space-y-4 pt-4 border-t border-border">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
                   Appointment Details
                 </h3>
 
@@ -353,6 +484,7 @@ export default function BookAppointment() {
           </CardContent>
         </Card>
       </div>
-    </main>
+      </main>
+    </>
   )
 }

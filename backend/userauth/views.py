@@ -5,6 +5,8 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Staff, StaffSchedule
 from .serializers import StaffSerializer, StaffScheduleSerializer
+from patients.models import Patient
+from patients.serializers import PatientSerializer
 
 class StaffViewSet(viewsets.ModelViewSet):
     queryset = Staff.objects.all()
@@ -18,20 +20,30 @@ class StaffViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(role=role)
         return queryset
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
     def login(self, request):
-        username = request.data.get('username')
+        email = request.data.get('email')
         password = request.data.get('password')
         
-        user = authenticate(username=username, password=password)
-        if user:
-            refresh = RefreshToken.for_user(user)
-            return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user': StaffSerializer(user).data
-            })
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        try:
+            user = Staff.objects.get(email=email)
+            if user.check_password(password):
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                    'user_type': 'staff',
+                    'user': StaffSerializer(user).data,
+                })
+            return Response(
+                {'error': 'Invalid credentials'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        except Staff.DoesNotExist:
+            return Response(
+                {'error': 'No account found with this email'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 class StaffScheduleViewSet(viewsets.ModelViewSet):
     queryset = StaffSchedule.objects.all()

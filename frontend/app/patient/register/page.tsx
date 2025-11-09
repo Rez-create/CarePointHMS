@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Heart, User, Mail, Phone, MapPin, Calendar, ArrowLeft } from "lucide-react"
+import { User, Mail, Phone, Calendar, MapPin, Lock, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-interface FormData {
+interface RegistrationData {
   firstName: string
   lastName: string
   email: string
@@ -17,13 +17,12 @@ interface FormData {
   dateOfBirth: string
   gender: string
   address: string
-  city: string
-  zipCode: string
-  medicalHistory: string
+  password: string
+  confirmPassword: string
 }
 
 export default function PatientRegister() {
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<RegistrationData>({
     firstName: "",
     lastName: "",
     email: "",
@@ -31,12 +30,10 @@ export default function PatientRegister() {
     dateOfBirth: "",
     gender: "",
     address: "",
-    city: "",
-    zipCode: "",
-    medicalHistory: "",
+    password: "",
+    confirmPassword: "",
   })
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
   const [error, setError] = useState("")
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -49,66 +46,58 @@ export default function PatientRegister() {
     setError("")
     setLoading(true)
 
-    // Validate required fields
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
-      setError("Please fill in all required fields")
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match")
       setLoading(false)
       return
     }
 
-    // Simulate registration
-    setTimeout(() => {
-      console.log("[v0] Registration submitted:", formData)
-      localStorage.setItem("patientData", JSON.stringify(formData))
-      setSuccess(true)
+    try {
+      const response = await fetch('http://localhost:8000/api/patients/patients/register/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          contact_email: formData.email,
+          contact_phone: formData.phone,
+          date_of_birth: formData.dateOfBirth,
+          gender: formData.gender,
+          address: formData.address,
+          password: formData.password,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Registration failed')
+      }
+
+      // Redirect to login with success message
+      window.location.href = '/login?registered=true'
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.')
+    } finally {
       setLoading(false)
-
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        window.location.href = "/login"
-      }, 2000)
-    }, 1000)
-  }
-
-  if (success) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
-        <Card className="border-border shadow-lg max-w-md w-full">
-          <CardContent className="pt-12 pb-12 text-center space-y-6">
-            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
-              <Heart className="w-8 h-8 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Registration Successful!</h2>
-              <p className="text-muted-foreground">Your patient profile has been created. Redirecting to login...</p>
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-    )
+    }
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background to-secondary p-4">
-      <Link href="/" className="inline-block mb-8">
+      <Link href="/patient/book-appointment" className="inline-block mb-8">
         <Button variant="ghost" size="sm" className="gap-2">
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          Back to Appointment
         </Button>
       </Link>
 
       <div className="max-w-2xl mx-auto">
         <Card className="border-border shadow-lg">
           <CardHeader>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <Heart className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl text-foreground">Patient Registration</CardTitle>
-                <CardDescription>Create your patient profile at CarePoint Hospital</CardDescription>
-              </div>
-            </div>
+            <CardTitle className="text-2xl text-foreground">Patient Registration</CardTitle>
+            <CardDescription>Create your account to book appointments</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -118,207 +107,171 @@ export default function PatientRegister() {
                 </Alert>
               )}
 
-              {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Personal Information
-                </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label htmlFor="firstName" className="text-sm font-medium text-foreground">
-                      First Name *
-                    </label>
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      placeholder="John"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      className="bg-input border-border text-foreground"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="lastName" className="text-sm font-medium text-foreground">
-                      Last Name *
-                    </label>
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      placeholder="Doe"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      className="bg-input border-border text-foreground"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium text-foreground">
-                      Email Address *
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        placeholder="john@example.com"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="pl-10 bg-input border-border text-foreground"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="phone" className="text-sm font-medium text-foreground">
-                      Phone Number *
-                    </label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="phone"
-                        name="phone"
-                        placeholder="+1 (555) 123-4567"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        className="pl-10 bg-input border-border text-foreground"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label htmlFor="dateOfBirth" className="text-sm font-medium text-foreground">
-                      Date of Birth
-                    </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="dateOfBirth"
-                        name="dateOfBirth"
-                        type="date"
-                        value={formData.dateOfBirth}
-                        onChange={handleChange}
-                        className="pl-10 bg-input border-border text-foreground"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="gender" className="text-sm font-medium text-foreground">
-                      Gender
-                    </label>
-                    <select
-                      id="gender"
-                      name="gender"
-                      value={formData.gender}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Address Information */}
-              <div className="space-y-4 pt-4 border-t border-border">
-                <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  Address
-                </h3>
+              <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="address" className="text-sm font-medium text-foreground">
-                    Street Address
+                  <label htmlFor="firstName" className="text-sm font-medium text-foreground">
+                    First Name *
                   </label>
                   <Input
-                    id="address"
-                    name="address"
-                    placeholder="123 Main Street"
-                    value={formData.address}
+                    id="firstName"
+                    name="firstName"
+                    placeholder="First name"
+                    value={formData.firstName}
                     onChange={handleChange}
-                    className="bg-input border-border text-foreground"
+                    required
                   />
                 </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label htmlFor="city" className="text-sm font-medium text-foreground">
-                      City
-                    </label>
-                    <Input
-                      id="city"
-                      name="city"
-                      placeholder="Medical City"
-                      value={formData.city}
-                      onChange={handleChange}
-                      className="bg-input border-border text-foreground"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="zipCode" className="text-sm font-medium text-foreground">
-                      Zip Code
-                    </label>
-                    <Input
-                      id="zipCode"
-                      name="zipCode"
-                      placeholder="12345"
-                      value={formData.zipCode}
-                      onChange={handleChange}
-                      className="bg-input border-border text-foreground"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Medical Information */}
-              <div className="space-y-4 pt-4 border-t border-border">
-                <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  <Heart className="w-4 h-4" />
-                  Medical History
-                </h3>
                 <div className="space-y-2">
-                  <label htmlFor="medicalHistory" className="text-sm font-medium text-foreground">
-                    Please mention any previous medical conditions, allergies, or medications
+                  <label htmlFor="lastName" className="text-sm font-medium text-foreground">
+                    Last Name *
                   </label>
-                  <textarea
-                    id="medicalHistory"
-                    name="medicalHistory"
-                    placeholder="e.g., Diabetes, Penicillin allergy..."
-                    value={formData.medicalHistory}
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    placeholder="Last name"
+                    value={formData.lastName}
                     onChange={handleChange}
-                    rows={4}
-                    className="w-full px-3 py-2 bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
                   />
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <div className="pt-6 flex gap-4">
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-                >
-                  {loading ? "Registering..." : "Complete Registration"}
-                </Button>
-                <Link href="/" className="flex-1">
-                  <Button variant="outline" className="w-full border-border text-foreground bg-transparent">
-                    Cancel
-                  </Button>
-                </Link>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium text-foreground">
+                    Email Address *
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="email@example.com"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="phone" className="text-sm font-medium text-foreground">
+                    Phone Number *
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      name="phone"
+                      placeholder="+254 7** *** ***"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
 
-              <p className="text-xs text-muted-foreground text-center">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="dateOfBirth" className="text-sm font-medium text-foreground">
+                    Date of Birth *
+                  </label>
+                  <Input
+                    id="dateOfBirth"
+                    name="dateOfBirth"
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="gender" className="text-sm font-medium text-foreground">
+                    Gender *
+                  </label>
+                  <select
+                    id="gender"
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-input border border-border rounded-md text-foreground"
+                    required
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                    <option value="O">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="address" className="text-sm font-medium text-foreground">
+                  Address *
+                </label>
+                <textarea
+                  id="address"
+                  name="address"
+                  placeholder="Your full address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-input border border-border rounded-md text-foreground"
+                  required
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium text-foreground">
+                    Password *
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
+                    Confirm Password *
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+              >
+                {loading ? "Creating Account..." : "Create Account"}
+              </Button>
+
+              <p className="text-sm text-muted-foreground text-center">
                 Already have an account?{" "}
                 <Link href="/login" className="text-primary hover:underline">
                   Sign in here

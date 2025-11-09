@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.hashers import make_password, check_password
 from userauth.models import Staff
 
 class Patient(models.Model):
@@ -16,8 +17,16 @@ class Patient(models.Model):
     contact_email = models.EmailField(unique=True)
     contact_phone = models.CharField(max_length=20)
     address = models.TextField()
+    password = models.CharField(max_length=128)  # For storing hashed password
     registration_date = models.DateTimeField(default=timezone.now)
     profile_updated_date = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    def set_password(self, raw_password):
+        self.password = make_password(raw_password)
+        
+    def check_password(self, raw_password):
+        return check_password(raw_password, self.password)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
