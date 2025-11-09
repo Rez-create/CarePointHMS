@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Sidebar } from "@/components/sidebar"
+import { PatientSidebar } from "@/components/patient-sidebar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, Download, DollarSign, Calendar, Pill } from "lucide-react"
+import { FileText, Download } from "lucide-react"
 
 interface Invoice {
   id: string
@@ -17,44 +17,49 @@ interface Invoice {
 
 export default function Billing() {
   const [userName, setUserName] = useState("Loading...")
-  const [invoices] = useState<Invoice[]>([
-    {
-      id: "INV-001",
-      date: "2024-11-20",
-      amount: 250,
-      items: ["Consultation - Dr. Sarah Johnson", "Lab Tests"],
-      status: "paid",
-      dueDate: "2024-11-27",
-    },
-    {
-      id: "INV-002",
-      date: "2024-10-15",
-      amount: 180,
-      items: ["Consultation - Dr. Michael Chen"],
-      status: "paid",
-      dueDate: "2024-10-22",
-    },
-    {
-      id: "INV-003",
-      date: "2024-11-25",
-      amount: 150,
-      items: ["Lab Tests - Thyroid Panel", "Consultation Follow-up"],
-      status: "pending",
-      dueDate: "2024-12-02",
-    },
-  ])
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const email = localStorage.getItem("userEmail")
-    setUserName(email || "Patient")
-  }, [])
+    const fetchData = async () => {
+      try {
+        const accessToken = localStorage.getItem('access_token')
+        if (!accessToken) return
 
-  const navItems = [
-    { icon: <Calendar className="w-4 h-4" />, label: "Appointments", href: "/patient/dashboard" },
-    { icon: <FileText className="w-4 h-4" />, label: "Medical Records", href: "/patient/records" },
-    { icon: <Pill className="w-4 h-4" />, label: "Prescriptions", href: "/patient/prescriptions" },
-    { icon: <DollarSign className="w-4 h-4" />, label: "Billing", href: "/patient/billing" },
-  ]
+        // Fetch patient name
+        const patientResponse = await fetch('http://localhost:8000/api/patients/patients/me/', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (patientResponse.ok) {
+          const patient = await patientResponse.json()
+          setUserName(`${patient.first_name} ${patient.last_name}`)
+        }
+
+        // Fetch billing data
+        const billingResponse = await fetch('http://localhost:8000/api/patients/patients/my_billing/', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (billingResponse.ok) {
+          const data = await billingResponse.json()
+          setInvoices(data.results)
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   const getStatusColor = (status: string) => {
     if (status === "paid") return "bg-green-100 text-green-800"
@@ -66,7 +71,7 @@ export default function Billing() {
 
   return (
     <div className="flex">
-      <Sidebar userRole="patient" userName={userName} navItems={navItems} />
+      <PatientSidebar userName={userName} />
 
       <main className="flex-1 md:ml-64 p-4 md:p-8 bg-background">
         <h1 className="text-3xl font-bold text-foreground mb-8">Billing & Invoices</h1>
@@ -81,13 +86,12 @@ export default function Billing() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Amount Due</p>
-                <p className="text-3xl font-bold text-destructive">${totalDue.toFixed(2)}</p>
+                <p className="text-3xl font-bold text-destructive">KSh {totalDue.toFixed(2)}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Paid</p>
                 <p className="text-3xl font-bold text-primary">
-                  $
-                  {invoices
+                  KSh {invoices
                     .filter((inv) => inv.status === "paid")
                     .reduce((sum, inv) => sum + inv.amount, 0)
                     .toFixed(2)}
@@ -98,8 +102,17 @@ export default function Billing() {
         </Card>
 
         {/* Invoices List */}
-        <div className="space-y-4">
-          {invoices.map((invoice) => (
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Loading billing data...</p>
+          </div>
+        ) : invoices.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No billing records found</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {invoices.map((invoice) => (
             <Card key={invoice.id} className="bg-card border-border">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
@@ -126,7 +139,7 @@ export default function Billing() {
                     </p>
                   </div>
                   <div className="text-right ml-4">
-                    <p className="text-2xl font-bold text-foreground mb-4">${invoice.amount.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-foreground mb-4">KSh {invoice.amount.toFixed(2)}</p>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" className="border-border bg-transparent">
                         <FileText className="w-4 h-4" />
@@ -139,8 +152,9 @@ export default function Billing() {
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   )

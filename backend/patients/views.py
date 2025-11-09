@@ -127,8 +127,46 @@ class PatientViewSet(viewsets.ModelViewSet):
         if not patient:
             return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
         
+        from appointments.models import Appointment
+        
+        # Get medical records
         records = MedicalRecord.objects.filter(patient=patient).order_by('-record_date')
-        return Response(MedicalRecordSerializer(records, many=True).data)
+        
+        # Get appointments
+        appointments = Appointment.objects.filter(patient=patient).order_by('-appointment_datetime')
+        
+        combined_records = []
+        
+        # Add medical records
+        for record in records:
+            combined_records.append({
+                'id': f'record_{record.id}',
+                'date': record.record_date.date(),
+                'doctorName': record.recorded_by.get_full_name() if record.recorded_by else 'Unknown Doctor',
+                'specialty': record.recorded_by.specialization if record.recorded_by else 'General',
+                'diagnosis': record.description,
+                'notes': record.notes or 'No additional notes',
+                'type': 'medical_record',
+                'attachments': 0
+            })
+        
+        # Add appointments as records
+        for appointment in appointments:
+            combined_records.append({
+                'id': f'appointment_{appointment.id}',
+                'date': appointment.appointment_datetime.date(),
+                'doctorName': appointment.doctor.get_full_name() if appointment.doctor else 'Unknown Doctor',
+                'specialty': appointment.doctor.specialization if appointment.doctor else 'General',
+                'diagnosis': f'Appointment - {appointment.status.title()}',
+                'notes': appointment.reason_for_visit or 'No reason specified',
+                'type': 'appointment',
+                'attachments': 0
+            })
+        
+        # Sort by date (newest first)
+        combined_records.sort(key=lambda x: x['date'], reverse=True)
+        
+        return Response({'results': combined_records})
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def my_prescriptions(self, request):
@@ -169,6 +207,37 @@ class PatientViewSet(viewsets.ModelViewSet):
             })
         
         return Response({'results': doctor_data})
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
+    def my_billing(self, request):
+        patient = self.get_patient_from_token(request)
+        if not patient:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        from billing.models import Bill, BillDetail
+        
+        bills = Bill.objects.filter(patient=patient).order_by('-issued_date')
+        
+        billing_data = []
+        for bill in bills:
+            details = BillDetail.objects.filter(bill=bill)
+            items = []
+            for detail in details:
+                if detail.service:
+                    items.append(detail.service.service_name)
+                elif detail.item:
+                    items.append(detail.item.name)
+            
+            billing_data.append({
+                'id': f'INV-{bill.id:03d}',
+                'date': bill.issued_date.date(),
+                'amount': float(bill.total_amount),
+                'items': items or ['Consultation'],
+                'status': bill.status,
+                'dueDate': bill.due_date
+            })
+        
+        return Response({'results': billing_data})
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
     def book_appointment(self, request):

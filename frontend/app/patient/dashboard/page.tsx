@@ -142,7 +142,7 @@ export default function PatientDashboard() {
     <div className="flex">
       <PatientSidebar userName={userName} />
 
-      <main className="flex-1 md:ml-64 p-4 md:p-8 bg-background">
+      <main className="flex-1 md:ml-64 p-4 md:p-8 bg-blue-50">
         {/* Header */}
         <div className="mb-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-foreground">Welcome to your dashboard</h1>
